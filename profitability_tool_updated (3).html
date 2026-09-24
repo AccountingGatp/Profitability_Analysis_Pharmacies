@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profitability Dashboard Builder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  html, body { margin: 0; padding: 0; background: #F6F4EE; }
+  #pd-root {
+    --bg: #F6F4EE;
+    --surface: #FFFFFF;
+    --ink: #1C2430;
+    --ink-soft: #4B5563;
+    --accent: #0F6E5C;
+    --accent-dim: #E4EFEC;
+    --warn: #A63B2E;
+    --warn-dim: #F6E6E3;
+    --amber: #8A5A00;
+    --amber-dim: #FBF1DC;
+    --line: #DCD7CA;
+    --gold: #B8862E;
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    padding: 0;
+    margin: 0;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+  #pd-root * { box-sizing: border-box; }
+  #pd-root .serif { font-family: 'Source Serif 4', serif; }
+  #pd-root .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  .pd-wrap { max-width: 1120px; margin: 0 auto; padding: 40px 28px 80px; }
+
+  .pd-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; border-bottom: 2px solid var(--ink); padding-bottom: 18px; gap: 16px; }
+  .pd-title { font-size: 30px; font-weight: 600; letter-spacing: -0.01em; }
+  .pd-eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+  .pd-subtitle { font-size: 13px; color: var(--ink-soft); max-width: 460px; text-align: right; line-height: 1.5; }
+
+  .pd-section-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; margin: 40px 0 14px; display: flex; align-items: center; gap: 10px; }
+  .pd-section-label::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  .pd-drop { border: 1.5px dashed var(--line); border-radius: 4px; background: var(--surface); padding: 36px 24px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  .pd-drop:hover, .pd-drop.pd-drag { border-color: var(--accent); background: var(--accent-dim); }
+  .pd-drop input { display: none; }
+  .pd-drop-icon { font-size: 26px; margin-bottom: 10px; color: var(--accent); }
+  .pd-drop-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .pd-drop-sub { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+
+  .pd-filelist { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .pd-fileitem { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 8px 12px; font-size: 12.5px; }
+  .pd-fileitem .mono { color: var(--ink-soft); }
+  .pd-fileitem .pd-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .pd-status { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .pd-status.ok { color: var(--accent); }
+  .pd-status.stop { color: var(--warn); }
+  .pd-status.check { color: var(--amber); }
+  .pd-x { background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; }
+  .pd-x:hover { color: var(--warn); }
+  .pd-err { color: var(--warn); font-size: 11.5px; }
+
+  .pd-btn { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 13px; border: none; border-radius: 3px; padding: 12px 22px; cursor: pointer; transition: transform .1s, box-shadow .15s; letter-spacing: .01em; }
+  .pd-btn:active { transform: translateY(1px); }
+  .pd-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .pd-btn-accent { background: var(--accent); color: #fff; }
+  .pd-btn-accent:hover:not(:disabled) { background: #0b5647; }
+  .pd-btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+  .pd-btn-ghost:hover:not(:disabled) { border-color: var(--ink-soft); color: var(--ink); }
+  .pd-btn-small { padding: 6px 12px; font-size: 12px; }
+
+  .pd-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+  .pd-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .pd-card { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 18px; position: relative; overflow: hidden; }
+  .pd-card-name { font-family: 'Source Serif 4', serif; font-weight: 600; font-size: 16px; margin-bottom: 2px; padding-right: 74px; }
+  .pd-card-sub { font-size: 11px; color: var(--ink-soft); margin-bottom: 14px; line-height: 1.5; }
+  .pd-metric-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #EFEBE0; font-size: 13px; gap: 8px; }
+  .pd-metric-row:last-of-type { border-bottom: none; }
+  .pd-metric-label { color: var(--ink-soft); font-size: 12px; }
+  .pd-metric-value { font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 13px; }
+  .pd-metric-value.blank { color: #B7B2A3; }
+  .pd-card-detail { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; }
+  .pd-card-detail b { color: var(--ink); font-weight: 600; }
+  .pd-flag { display: block; margin-top: 4px; }
+  .pd-flag.warn { color: var(--warn); }
+  .pd-flag.amber { color: var(--amber); }
+  .pd-flag.ok { color: var(--accent); }
+
+  .pd-stamp { position: absolute; top: 14px; right: -4px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .08em; padding: 4px 10px 4px 12px; transform: rotate(4deg); border: 1.5px solid; border-radius: 2px; text-transform: uppercase; background: var(--surface); }
+  .pd-stamp.ok { color: var(--accent); border-color: var(--accent); }
+  .pd-stamp.stop { color: var(--warn); border-color: var(--warn); transform: rotate(-3deg); }
+  .pd-stamp.check { color: var(--amber); border-color: var(--amber); transform: rotate(-3deg); }
+
+  .pd-table-wrap { overflow-x: auto; }
+  .pd-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); font-size: 13px; }
+  .pd-table th, .pd-table td { padding: 10px 14px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .pd-table th:first-child, .pd-table td:first-child { text-align: left; white-space: normal; }
+  .pd-table thead th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); font-weight: 600; background: #FBFAF6; border-bottom: 2px solid var(--ink); }
+  .pd-table td { font-family: 'IBM Plex Mono', monospace; }
+  .pd-table td:first-child, .pd-table th:first-child { font-family: 'Inter', sans-serif; }
+  .pd-table tr.pd-total td { font-weight: 700; border-top: 2px solid var(--ink); background: var(--accent-dim); }
+  .pd-blank { color: #B7B2A3; }
+
+  .pd-note { font-size: 11.5px; color: var(--ink-soft); margin-top: 10px; line-height: 1.5; }
+
+  .pd-banner { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 4px; font-size: 12.5px; line-height: 1.5; margin-bottom: 12px; }
+  .pd-banner.warn { background: var(--warn-dim); color: #7A2A20; border: 1px solid #E3B8AF; }
+  .pd-banner.amber { background: var(--amber-dim); color: #6B4700; border: 1px solid #EBD3A0; }
+  .pd-banner.info { background: var(--accent-dim); color: #0B4F42; border: 1px solid #B7DBD2; }
+  .pd-banner b { font-weight: 700; }
+
+  .pd-combine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+  .pd-combine-grid label { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; font-size: 13px; cursor: pointer; }
+  .pd-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 14px; }
+
+  .pd-name-row { display:flex; align-items:center; gap:10px; margin-top:12px; font-size:12.5px; color:var(--ink-soft); flex-wrap:wrap; }
+  .pd-name-row input { font-family:'Inter',sans-serif; font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:3px; min-width:260px; background:var(--surface); color:var(--ink); }
+  .pd-map select { font-family:'Inter',sans-serif; font-size:12.5px; padding:6px 8px; border:1px solid var(--line); border-radius:3px; max-width:320px; background:var(--surface); color:var(--ink); }
+  .pd-map td { font-family:'Inter',sans-serif; white-space:normal; text-align:left; font-size:12.5px; }
+  .pd-map th { text-align:left !important; }
+  .pd-ok { color: var(--accent); }
+  .pd-bad { color: var(--warn); }
+  .pd-drop.pd-drop-sm { padding: 22px 20px; }
+  .pd-gen-status { margin-top:14px; padding:12px 14px; border-radius:4px; font-size:12.5px; line-height:1.55; }
+  .pd-gen-status.ok { background: var(--accent-dim); border:1px solid #B7DBD2; color:#0B4F42; }
+  .pd-gen-status.err { background: var(--warn-dim); border:1px solid #E3B8AF; color:#7A2A20; }
+  .pd-gen-status.busy { background:#FBFAF6; border:1px solid var(--line); color:var(--ink-soft); }
+  .pd-save-link { display:inline-block; margin-top:8px; background: var(--accent); color:#fff !important; text-decoration:none; font-weight:600; padding:8px 16px; border-radius:3px; }
+  .pd-empty { text-align: center; padding: 60px 20px; color: var(--ink-soft); font-size: 13px; }
+  .pd-progress { font-size: 12px; color: var(--ink-soft); margin-top: 10px; font-family: 'IBM Plex Mono', monospace; }
+
+  @media (max-width: 640px) {
+    .pd-wrap { padding: 24px 16px 60px; }
+    .pd-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .pd-subtitle { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div id="pd-root">
+  <div class="pd-wrap">
+
+    <div class="pd-header">
+      <div>
+        <div class="pd-eyebrow">SOP-Driven Automation</div>
+        <div class="pd-title serif">Profitability Dashboard Builder</div>
+      </div>
+      <div class="pd-subtitle">Upload P&amp;L exports (accrual basis). Add last month's workbook to split a YTD P&amp;L into months. The tool validates each entity, calculates Gross / Net / EBITDA margins, and generates a colour-formatted, formula-driven Excel workbook.</div>
+    </div>
+
+    <div class="pd-section-label">01 — Upload P&amp;L Exports</div>
+    <div class="pd-drop" id="pd-drop">
+      <input type="file" id="pd-file-input" multiple accept=".xlsx,.xls">
+      <div class="pd-drop-icon">&#128194;</div>
+      <div class="pd-drop-title">Drop QuickBooks / Xero P&amp;L .xlsx files here, or click to browse</div>
+      <div class="pd-drop-sub">One file per entity &middot; monthly columns + Total, <b>or</b> YTD-only (single Total column) &middot; accrual basis<br>You can add files in more than one batch — use &times; to remove a file.</div>
+    </div>
+    <div class="pd-filelist" id="pd-filelist"></div>
+    <div class="pd-progress" id="pd-progress"></div>
+
+    <div class="pd-section-label">02 — Previous Months (optional)</div>
+    <div class="pd-drop pd-drop-sm" id="pd-prior-drop">
+      <input type="file" id="pd-prior-input" multiple accept=".xlsx,.xls">
+      <div class="pd-drop-title">Drop last month's dashboard workbook here (or monthly P&amp;L exports)</div>
+      <div class="pd-drop-sub">Used only when the new P&amp;L is YTD-only. Earlier months are taken from this file and the latest month is written as a formula: <span class="mono">= YTD − SUM(earlier months)</span> — nothing is estimated.<br>Skip this and each tab shows the YTD total only.</div>
+    </div>
+    <div class="pd-filelist" id="pd-prior-list"></div>
+    <div id="pd-prior-map" style="margin-top:14px;"></div>
+
+    <div id="pd-results" style="display:none;">
+      <div class="pd-section-label">03 — Validation &amp; Entity Metrics</div>
+      <div id="pd-banner-area"></div>
+      <div class="pd-cards" id="pd-cards"></div>
+
+      <div class="pd-section-label">04 — Summary</div>
+      <div id="pd-summary-area"></div>
+
+      <div class="pd-section-label">05 — Combined Entity Analysis</div>
+      <div class="pd-banner info">
+        <span>&#9432;</span>
+        <div><b>Combined analysis.</b> Tick two or more entities and click <b>Add Combined Group</b>. Revenue, Gross Profit, Net Income and EBITDA are summed first, then the combined percentages are calculated from those sums — percentages are never averaged. You can add as many groups as you need; each one becomes its own tab in the Excel workbook.</div>
+      </div>
+      <div id="pd-combine-area"></div>
+      <div class="pd-actions">
+        <button class="pd-btn pd-btn-accent" id="pd-combine-btn" disabled>Add Combined Group</button>
+      </div>
+      <div class="pd-groups" id="pd-combined-result"></div>
+
+      <div class="pd-section-label">06 — Generate Workbook</div>
+      <div class="pd-actions">
+        <button class="pd-btn pd-btn-accent" id="pd-generate-btn">Download Excel Dashboard (.xlsx)</button>
+        <button class="pd-btn pd-btn-ghost" id="pd-reset-btn">Start Over</button>
+      </div>
+      <div id="pd-gen-status" class="pd-gen-status" style="display:none;"></div>
+      <div class="pd-note">Workbook tabs (same layout as the manual workbook): <b>Consolidated Analysis</b> (every entity + TOTAL), one tab per <b>combined group</b>, and one tab per entity (Jan… months + Total, raw P&amp;L inputs in rows 4–10, calculated metrics in rows 14–20, QA checks and notes). Colour-coded: blue = typed-in source figures, black = formulas, light blue = latest-month formula, yellow rows = percentages, red = negatives. Every summary figure pulls from the entity tabs with formulas; percentages are calculated from summed dollars, never averaged.</div>
+    </div>
+
+    <div class="pd-empty" id="pd-empty">No files uploaded yet — waiting on P&amp;L exports.</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';document.head.appendChild(s);"></script>
+<script>
+(function(){
+  'use strict';
+
+  const dropZone = document.getElementById('pd-drop');
+  const fileInput = document.getElementById('pd-file-input');
+  const fileListEl = document.getElementById('pd-filelist');
+  const progressEl = document.getElementById('pd-progress');
+  const priorDrop = document.getElementById('pd-prior-drop');
+  const priorInput = document.getElementById('pd-prior-input');
+  const priorListEl = document.getElementById('pd-prior-list');
+  const priorMapEl = document.getElementById('pd-prior-map');
+  const resultsEl = document.getElementById('pd-results');
+  const emptyEl = document.getElementById('pd-empty');
+  const cardsEl = document.getElementById('pd-cards');
+  const bannerAreaEl = document.getElementById('pd-banner-area');
+  const summaryAreaEl = document.getElementById('pd-summary-area');
+  const genBtn = document.getElementById('pd-generate-btn');
+  const resetBtn = document.getElementById('pd-reset-btn');
+  const combineAreaEl = document.getElementById('pd-combine-area');
+  const combineBtn = document.getElementById('pd-combine-btn');
+  const combinedResultEl = document.getElementById('pd-combined-result');
+  const genStatusEl = document.getElementById('pd-gen-status');
+  let lastDownloadUrl = null;
+
+  let entities = [];        // parsed entities, in upload order
+  let failedFiles = [];     // {fileName, error}
+  let combinedGroups = [];  // {ids:[entity ids], name}
+  let nextId = 1;
+
+  // ---------------- helpers ----------------
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function fmtMoney(v){
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    const r = Math.round(v);
+    const neg = r < 0;
+    const s = Math.abs(r).toLocaleString('en-US');
+    return (neg ? '($' : '$') + s + (neg ? ')' : '');
+  }
+  function fmtPct(v){
+    if (v === null || v === undefined || isNaN(v)) return null;
+    const t = (v*100).toFixed(1);
+    return (t === '-0.0' ? '0.0' : t) + '%';
+  }
+  function pctCell(v){ const p = fmtPct(v); return p == null ? '<span class="pd-blank">—</span>' : p; }
+  function sum(arr){ return arr.reduce((a,b)=>a+(b||0),0); }
+  function round2(v){ return Math.round(v*100)/100; }
+
+  function parseNumber(v){
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    if (v instanceof Date) return null;
+    const s = String(v).trim();
+    if (!s || s === '-' || s === '—') return null;
+    const neg = /^\(.*\)$/.test(s) || /^-/.test(s);
+    const cleaned = s.replace(/[,$%\s()\-]/g,'');
+    if (!/^\d*\.?\d+(e[+-]?\d+)?$/i.test(cleaned)) return null;
+    const n = Number(cleaned);
+    if (!Number.isFinite(n)) return null;
+    return neg ? -n : n;
+  }
+
+  const MONTH_RE = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?([\s\-\/,.]+.*)?$/i;
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function headerText(v){
+    if (v === null || v === undefined) return '';
+    if (v instanceof Date) return MONTH_NAMES[v.getMonth()] + ' ' + v.getFullYear();
+    return String(v).trim();
+  }
+  // "Jan 2026", "January 2026", "Jan-26", Date → {y, m}; null if not a month with a year
+  function parseMonthYear(v){
+    if (v instanceof Date) return {y: v.getFullYear(), m: v.getMonth()};
+    const s = headerText(v);
+    if (!s || isTotalHeader(s)) return null;
+    let mm = s.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s\-\/,.']*(\d{4}|\d{2})$/i);
+    if (mm) {
+      const m = MONTH_NAMES.findIndex(x => x.toLowerCase() === mm[1].toLowerCase());
+      const y = mm[2].length === 2 ? 2000 + Number(mm[2]) : Number(mm[2]);
+      return {y, m};
+    }
+    mm = s.match(/^((?:19|20)\d{2})[-\/](0?[1-9]|1[0-2])$/);
+    if (mm) return {y: Number(mm[1]), m: Number(mm[2]) - 1};
+    return null;
+  }
+  const ymLabel = (x) => MONTH_NAMES[x.m] + ' ' + x.y;
+  const ymKey = (x) => x.y * 12 + x.m;
+  // "January - August, 2026" → [{y:2026,m:0} ... {y:2026,m:7}]; null if it can't be read
+  function periodMonths(period){
+    if (!period) return null;
+    const re = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/gi;
+    const names = [...period.matchAll(re)].map(x => MONTH_NAMES.findIndex(n => n.toLowerCase() === x[1].slice(0,3).toLowerCase()));
+    const years = [...period.matchAll(/\b((?:19|20)\d{2})\b/g)].map(x => Number(x[1]));
+    if (!names.length || !years.length) return null;
+    const s = {y: years[0], m: names[0]};
+    const e = {y: years[years.length-1], m: names[names.length-1]};
+    if (ymKey(e) < ymKey(s) || ymKey(e) - ymKey(s) > 23) return null;
+    const out = [];
+    for (let k = ymKey(s); k <= ymKey(e); k++) out.push({y: Math.floor(k/12), m: k % 12});
+    return out;
+  }
+  function isTotalHeader(s){ return /^(total|ytd|year[\s-]*to[\s-]*date|full[\s-]*period)\b/i.test(s); }
+  function isMonthHeader(v){
+    if (v instanceof Date) return true;
+    const s = headerText(v);
+    if (!s || isTotalHeader(s)) return false;
+    return MONTH_RE.test(s) || /^20\d{2}[-\/](0?[1-9]|1[0-2])$/.test(s);
+  }
+
+  // ---------------- formula fallback (files never opened/saved in Excel) ----------------
+  // QuickBooks/Xero exports store every figure as a formula (e.g. "=10640019.66", "=(B7)+(B8)").
+  // If the file was never opened and saved in Excel, the cached results can be missing and read as blank/0.
+  // This evaluates simple arithmetic formulas so the numbers are still correct.
+  function fillFormulaValues(ws){
+    const memo = {};
+    function cellValue(addr, stack){
+      if (memo[addr] !== undefined) return memo[addr];
+      const cell = ws[addr];
+      let out;
+      if (!cell) out = 0;
+      else if (cell.f) {
+        if (stack.has(addr)) throw new Error('circular');
+        stack.add(addr);
+        const hasCached = typeof cell.v === 'number' && cell.v !== 0;
+        if (hasCached) out = cell.v;
+        else out = evalFormula(String(cell.f), stack);
+        stack.delete(addr);
+      }
+      else if (typeof cell.v === 'number') out = cell.v;
+      else if (cell.v === null || cell.v === undefined || cell.v === '') out = 0;
+      else { const n = parseNumber(cell.v); if (n === null) throw new Error('non-numeric'); out = n; }
+      memo[addr] = out;
+      return out;
+    }
+    function evalFormula(f, stack){
+      const src = f.replace(/^=/, '');
+      const toks = [];
+      const re = /\s*(?:(\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|(\$?[A-Z]{1,3}\$?\d+)|(SUM)|([+\-*\/(),:]))/giy;
+      let m; re.lastIndex = 0;
+      while (re.lastIndex < src.length){
+        const start = re.lastIndex;
+        m = re.exec(src);
+        if (!m || m.index !== start) { if (/^\s*$/.test(src.slice(start))) break; throw new Error('unsupported'); }
+        if (m[1] !== undefined) toks.push({t:'n', v:Number(m[1])});
+        else if (m[2] !== undefined) toks.push({t:'r', v:m[2].replace(/\$/g,'').toUpperCase()});
+        else if (m[3] !== undefined) toks.push({t:'fn', v:'SUM'});
+        else toks.push({t:'o', v:m[4]});
+      }
+      let p = 0;
+      const peek = () => toks[p];
+      const eat = (v) => { const t = toks[p]; if (!t || t.v !== v) throw new Error('syntax'); p++; };
+      function expr(){ let v = term(); while (peek() && (peek().v === '+' || peek().v === '-')) { const o = toks[p++].v; const r = term(); v = o === '+' ? v + r : v - r; } return v; }
+      function term(){ let v = unary(); while (peek() && (peek().v === '*' || peek().v === '/')) { const o = toks[p++].v; const r = unary(); if (o === '/' && r === 0) throw new Error('div0'); v = o === '*' ? v * r : v / r; } return v; }
+      function unary(){ const t = peek(); if (t && (t.v === '-' || t.v === '+')) { p++; const v = unary(); return t.v === '-' ? -v : v; } return primary(); }
+      function rangeSum(a, b){
+        const ra = XLSX.utils.decode_cell(a), rb = XLSX.utils.decode_cell(b);
+        let s = 0;
+        for (let r = Math.min(ra.r, rb.r); r <= Math.max(ra.r, rb.r); r++)
+          for (let c = Math.min(ra.c, rb.c); c <= Math.max(ra.c, rb.c); c++)
+            s += cellValue(XLSX.utils.encode_cell({r, c}), stack);
+        return s;
+      }
+      function primary(){
+        const t = toks[p++];
+        if (!t) throw new Error('syntax');
+        if (t.t === 'n') return t.v;
+        if (t.t === 'r') {
+          if (peek() && peek().v === ':') { p++; const b = toks[p++]; if (!b || b.t !== 'r') throw new Error('syntax'); return rangeSum(t.v, b.v); }
+          return cellValue(t.v, stack);
+        }
+        if (t.t === 'fn') {
+          eat('(');
+          let s = 0;
+          if (peek() && peek().v !== ')') {
+            s += expr();
+            while (peek() && peek().v === ',') { p++; s += expr(); }
+          }
+          eat(')');
+          return s;
+        }
+        if (t.v === '(') { const v = expr(); eat(')'); return v; }
+        throw new Error('syntax');
+      }
+      const v = expr();
+      if (p !== toks.length) throw new Error('syntax');
+      if (!Number.isFinite(v)) throw new Error('nan');
+      return v;
+    }
+    let filled = 0;
+    for (const addr of Object.keys(ws)){
+      if (addr[0] === '!') continue;
+      const cell = ws[addr];
+      if (!cell || !cell.f) continue;
+      const missing = cell.v === undefined || cell.v === null || cell.v === '' || (typeof cell.v === 'number' && cell.v === 0);
+      if (!missing) continue;
+      try {
+        const v = cellValue(addr, new Set());
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          if (cell.v !== v) filled++;
+          cell.v = v; cell.t = 'n'; delete cell.w;
+        }
+      } catch (e) { /* leave cell as-is if the formula is not simple arithmetic */ }
+    }
+    return filled;
+  }
+
+  // ---------------- parsing ----------------
+  function readFileAsArrayBuffer(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('Could not read the file.'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  async function parseWorkbook(file){
+    const buf = await readFileAsArrayBuffer(file);
+    const wb = XLSX.read(new Uint8Array(buf), {type:'array', cellDates:true, cellFormula:true, sheetStubs:true});
+    if (!wb.SheetNames.length) throw new Error('Workbook contains no worksheets.');
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    if (!ws || !ws['!ref']) throw new Error('The first worksheet is empty.');
+
+    return parseSheet(ws, file.name);
+  }
+
+  function parseSheet(ws, fileNameArg){
+    const file = {name: fileNameArg};
+    const formulaFilled = fillFormulaValues(ws);
+
+    const dec = XLSX.utils.decode_range(ws['!ref']);
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true, blankrows:true,
+      range:{s:{r:0,c:0}, e:{r:dec.e.r, c:dec.e.c}}});
+    if (!rows.length) throw new Error('The first worksheet is empty.');
+
+    // ---- entity name & period ----
+    const filenameName = file.name.replace(/\.xlsx?$/i,'').trim();
+    const genericTitles = /^(profit\s*(and|&)\s*loss(\s+statement)?|p\s*&\s*l|income\s+statement|statement\s+of\s+(activity|activities|operations))$/i;
+    const firstCell = rows[0] && rows[0][0] != null ? String(rows[0][0]).trim() : '';
+    const entityName = firstCell && !genericTitles.test(firstCell) ? firstCell : filenameName;
+    let period = '';
+    for (let i=1; i<Math.min(rows.length, 6); i++){
+      const v = rows[i] && rows[i][0] != null ? String(rows[i][0]).trim() : '';
+      if (v && /(19|20)\d{2}/.test(v) && !genericTitles.test(v)) { period = v; break; }
+    }
+
+    // ---- header row: month columns and/or a Total column ----
+    let headerIdx = -1, monthCols = [], totalCol = -1;
+    for (let i=0; i<Math.min(rows.length, 40); i++){
+      const r = rows[i] || [];
+      const mc = []; let tc = -1;
+      for (let c=1; c<r.length; c++){
+        const v = r[c];
+        if (v === null || v === undefined || v === '') continue;
+        const s = headerText(v);
+        if (isTotalHeader(s)) { if (tc < 0) tc = c; }
+        else if (isMonthHeader(v)) mc.push(c);
+      }
+      if (mc.length || tc >= 0) { headerIdx = i; monthCols = mc; totalCol = tc; break; }
+    }
+    if (headerIdx < 0) throw new Error('Could not find the column header row (expected month columns and/or a Total column).');
+    // A single period column with no Total column (e.g. "Jan - Aug 2026") is treated as the YTD total.
+    if (totalCol < 0 && monthCols.length === 1) { totalCol = monthCols[0]; monthCols = []; }
+    const headerRow = rows[headerIdx] || [];
+    const months = monthCols.map(c => headerText(headerRow[c]));
+    const ytdOnly = monthCols.length === 0;
+    const totalHeader = totalCol >= 0 ? headerText(headerRow[totalCol]) : 'Total';
+
+    const labelOf = (i) => { const r = rows[i]; return r && r[0] != null ? String(r[0]) : ''; };
+    const trimLabel = (i) => labelOf(i).replace(/\s+/g,' ').trim();
+    const indentOf = (i) => { const m = labelOf(i).match(/^\s*/); return m ? m[0].length : 0; };
+    const valCols = ytdOnly ? [totalCol] : monthCols.concat(totalCol >= 0 ? [totalCol] : []);
+    const hasValue = (i) => valCols.some(c => parseNumber((rows[i]||[])[c]) !== null);
+
+    // vector = [month1..monthN, total]; total = sum of months when monthly (matches the workbook's SUM formula)
+    function vectorOf(i){
+      const r = rows[i] || [];
+      if (ytdOnly) { const t = parseNumber(r[totalCol]); return [t == null ? 0 : round2(t)]; }
+      const mv = monthCols.map(c => { const n = parseNumber(r[c]); return n == null ? 0 : round2(n); });
+      return mv.concat([round2(sum(mv))]);
+    }
+    const zeros = () => new Array(months.length + 1).fill(0);
+    const warnings = [];
+
+    // Find the first row (patterns tried in priority order) whose label matches and that carries a number.
+    function findRow(patterns, opts){
+      opts = opts || {};
+      const from = opts.from != null ? opts.from : headerIdx + 1;
+      const to = opts.to != null ? opts.to : rows.length - 1;
+      for (const re of patterns){
+        let hit = -1;
+        for (let i=from; i<=to; i++){
+          if (!re.test(trimLabel(i))) continue;
+          if (!hasValue(i)) continue;
+          hit = i;
+          if (!opts.last) break;
+        }
+        if (hit >= 0) return hit;
+      }
+      return -1;
+    }
+
+    const revIdx = findRow([
+      /^Total\s+(for\s+)?(Income|Revenues?|Sales|Trading\s+Income|Operating\s+Revenues?)$/i,
+      /^Total\s+(for\s+)?Revenues?\s+from\s+Operations?$/i,
+      /^Revenues?\s+from\s+Operations?$/i
+    ]);
+    const cogsIdx = findRow([
+      /^Total\s+(for\s+)?(Cost\s+of\s+(Goods\s+Sold|Sales|Revenue)|COGS|Direct\s+Costs)$/i
+    ]);
+    const opexIdx = findRow([
+      /^Total\s+(for\s+)?(Expenses|Expenditures?|Operating\s+Expenses|Overheads)$/i
+    ]);
+    let niIdx = findRow([
+      /^Net\s+(Income|Profit|Earnings)(\s*\(\s*Loss\s*\)|\s*\/\s*\(?\s*Loss\s*\)?|\s+(and|&)\s+Loss)?$/i
+    ], {last:true});
+    if (niIdx < 0) {
+      // Non-profit "Statement of Activity" layouts (e.g. "Net Revenue", "Change in Net Assets")
+      niIdx = findRow([
+        /^Change\s+in\s+Net\s+Assets$/i,
+        /^Net\s+(Surplus|Deficit)(\s*\/\s*\(?\s*(Surplus|Deficit)\s*\)?)?$/i,
+        /^Net\s+Revenues?$/i
+      ], {last:true, from: Math.max(opexIdx, revIdx, headerIdx) + 1});
+    }
+    const netOtherIdx = findRow([/^Net\s+Other\s+(Income|Revenues?)(\s*\/?\s*\(?\s*Expenses?\s*\)?)?$/i, /^Net\s+Other\s+Expenses?$/i]);
+    const otherIncIdx = findRow([/^Total\s+(for\s+)?Other\s+(Income|Revenues?)$/i]);
+    const otherExpIdx = findRow([/^Total\s+(for\s+)?Other\s+Expenses?$/i]);
+
+    if (revIdx < 0) warnings.push('Revenue total row (e.g. "Total Income") not found — Revenue taken as $0.');
+    if (niIdx < 0) warnings.push('Net Income row not found — Net Income taken as $0.');
+    if (opexIdx < 0) warnings.push('Total Expenses row not found — Operating Expenses taken as $0 (affects the QA check only).');
+
+    const revenue = revIdx >= 0 ? vectorOf(revIdx) : zeros();
+    const cogs = cogsIdx >= 0 ? vectorOf(cogsIdx) : zeros();
+    const opex = opexIdx >= 0 ? vectorOf(opexIdx) : zeros();
+    const netIncome = niIdx >= 0 ? vectorOf(niIdx) : zeros();
+    let netOther;
+    if (netOtherIdx >= 0) {
+      netOther = vectorOf(netOtherIdx);
+      if (/Expense/i.test(trimLabel(netOtherIdx)) && !/Income|Revenue/i.test(trimLabel(netOtherIdx))) netOther = netOther.map(v => -v);
+    } else {
+      const oi = otherIncIdx >= 0 ? vectorOf(otherIncIdx) : zeros();
+      const oe = otherExpIdx >= 0 ? vectorOf(otherExpIdx) : zeros();
+      netOther = oi.map((v,i) => round2(v - oe[i]));
+    }
+
+    // ---- EBITDA add-back lines (interest, D&A, income tax) with parent/child de-duplication ----
+    const scopeFrom = (revIdx >= 0 ? revIdx : headerIdx) + 1;
+    const scopeTo = (niIdx >= 0 ? niIdx : rows.length) - 1;
+    function collectLines(includeRe, excludeRe){
+      const matches = [];
+      for (let i=scopeFrom; i<=scopeTo; i++){
+        const lab = trimLabel(i);
+        if (!lab) continue;
+        if (!includeRe.test(lab)) continue;
+        if (excludeRe && excludeRe.test(lab)) continue;
+        matches.push(i);
+      }
+      const drop = new Set();
+      for (const m of matches){
+        const tm = trimLabel(m).match(/^Total\s+(?:for\s+)?(.+)$/i);
+        if (!tm) continue;
+        const name = tm[1].trim().toLowerCase();
+        let h = -1;
+        for (let j=m-1; j>=scopeFrom; j--){ if (trimLabel(j).toLowerCase() === name) { h = j; break; } }
+        if (h < 0) {
+          // fall back to indentation: children are indented deeper than their "Total ..." row
+          const ind = indentOf(m); let j = m - 1;
+          while (j >= scopeFrom && indentOf(j) > ind) j--;
+          if (j >= scopeFrom && j < m - 1 && indentOf(j) === ind) h = j;
+        }
+        if (h >= 0) for (const x of matches) if (x >= h && x < m) drop.add(x);
+      }
+      return matches.filter(i => !drop.has(i) && hasValue(i)).map(i => ({rowIdx:i, label:trimLabel(i), values:vectorOf(i)}));
+    }
+    const sumLines = (lines) => { const v = zeros(); lines.forEach(l => l.values.forEach((x,i) => v[i] += x)); return v.map(round2); };
+
+    const interestLines = collectLines(/interest/i, /(income|earned|revenue|received|receivable|refund|dividend)/i);
+    const daLines = collectLines(/(depreciation|amorti[sz]ation)/i, /accumulated/i);
+    const taxLines = collectLines(/(\bincome\s+tax(es)?\b|provision\s+for\s+(income\s+)?tax(es)?)/i, /(payroll|refund|sales\s+tax|property\s+tax)/i);
+    const interest = sumLines(interestLines);
+    const da = sumLines(daLines);
+    const tax = taxLines.length ? sumLines(taxLines) : null;
+
+    // ---- possible one-time / unusual items (flagged for review in Notes) ----
+    const revT = Math.abs(revenue[revenue.length-1]);
+    const addbackRows = new Set([...interestLines, ...daLines, ...taxLines].map(l => l.rowIdx));
+    const unusual = [];
+    const seen = new Set();
+    function flag(line, why){
+      if (seen.has(line.rowIdx) || addbackRows.has(line.rowIdx)) return;
+      seen.add(line.rowIdx);
+      const t = line.values[line.values.length-1];
+      unusual.push({label: line.label, total: t, pctOfRev: revT ? Math.abs(t)/revT : null, why});
+    }
+    collectLines(/(bad\s*debts?|write[\s-]*offs?|writeoffs?|settlement|severance|impairment|one[\s-]*(time|off)|penalt|litigation|lawsuit|(loss|gain)\s+on\s+(sale|disposal)|restructur|prior[\s-]+(year|period)|previous\s+year)/i)
+      .forEach(l => { const t = Math.abs(l.values[l.values.length-1]); if (revT && t >= 0.01*revT) flag(l, 'one-time/unusual keyword'); });
+    collectLines(/bonus/i)
+      .forEach(l => { const t = Math.abs(l.values[l.values.length-1]); if (revT && t >= 0.05*revT) flag(l, 'large bonus'); });
+    if (opexIdx >= 0) {
+      for (let i=opexIdx+1; i<=scopeTo; i++){
+        const lab = trimLabel(i);
+        if (!lab || /^(Total|Net)\b/i.test(lab) || !hasValue(i)) continue;
+        const v = vectorOf(i); const t = Math.abs(v[v.length-1]);
+        if (revT && t >= 0.05*revT) flag({rowIdx:i, label:lab, values:v}, 'large other income/expense item');
+      }
+    }
+
+    // ---- validations ----
+    const allZero = [revenue, cogs, opex, netIncome, interest, da].every(v => v.every(x => x === 0)) && (tax == null || tax.every(x => x === 0));
+    const calcNI = revenue.map((r,i) => r - cogs[i] - opex[i] + netOther[i]);
+    const qaDiff = round2(netIncome[netIncome.length-1] - calcNI[calcNI.length-1]);
+    if (!ytdOnly && totalCol >= 0) {
+      const srcTotal = revIdx >= 0 ? parseNumber((rows[revIdx]||[])[totalCol]) : null;
+      if (srcTotal != null && Math.abs(srcTotal - revenue[revenue.length-1]) > 1)
+        warnings.push(`Monthly Revenue adds up to ${fmtMoney(revenue[revenue.length-1])} but the file's Total column shows ${fmtMoney(srcTotal)}.`);
+    }
+
+    return {
+      id: nextId++,
+      name: entityName || filenameName,
+      fileName: file.name,
+      period, ytdOnly, months, totalHeader,
+      targetMonths: periodMonths(period),
+      cols: months.concat([ytdOnly ? (totalHeader || 'Total') : 'Total']),
+      cogsFound: cogsIdx >= 0,
+      revenue, cogs, opex, netOther, interest, da, tax, netIncome, calcNI,
+      interestLines, daLines, taxLines, unusual, warnings,
+      qaDiff, qaMatch: Math.round(qaDiff) === 0,   // same test as the workbook's ROUND(...,0)=0
+      formulaFilled, allZero
+    };
+  }
+
+  function deriveMetrics(e){
+    const n = e.revenue.length;
+    e.gp = e.revenue.map((r,i) => r - e.cogs[i]);
+    e.gpPct = e.revenue.map((r,i) => r === 0 ? null : e.gp[i]/r);
+    e.npPct = e.revenue.map((r,i) => r === 0 ? null : e.netIncome[i]/r);
+    e.ebitda = e.netIncome.map((ni,i) => ni + e.interest[i] + e.da[i] + (e.tax ? e.tax[i] : 0));
+    e.ebitdaPct = e.revenue.map((r,i) => r === 0 ? null : e.ebitda[i]/r);
+    const T = n - 1;
+    e.revenueTotal = e.revenue[T]; e.cogsTotal = e.cogs[T]; e.gpTotal = e.gp[T]; e.gpPctTotal = e.gpPct[T];
+    e.niTotal = e.netIncome[T]; e.npPctTotal = e.npPct[T];
+    e.ebitdaTotal = e.ebitda[T]; e.ebitdaPctTotal = e.ebitdaPct[T];
+    e.noCogs = e.cogsTotal === 0;
+    e.status = e.allZero ? 'stop' : ((!e.qaMatch || e.warnings.length) ? 'check' : 'ok');
+  }
+
+
+  // ---------------- previous-months workbook (optional) ----------------
+  // Lets a YTD-only P&L be split into months exactly like the manual workbook:
+  // earlier months come from last month's workbook, the latest month = YTD − SUM(earlier months) as a formula.
+  let priorFiles = [];   // {fileName, candidates:[{key, fileName, sheetName, name, months:[{y,m}], vals:{rev,cogs,opex,int,da,tax,ni}}]}
+  let priorFailed = [];  // {fileName, error}
+
+  const RAW_KEYS = ['rev','cogs','opex','int','da','tax','ni'];
+
+  function extractPriorCandidates(wb, fileName){
+    const out = [];
+    wb.SheetNames.forEach(sn => {
+      const ws = wb.Sheets[sn];
+      if (!ws || !ws['!ref']) return;
+      try { fillFormulaValues(ws); } catch (e) {}
+      const dec = XLSX.utils.decode_range(ws['!ref']);
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true, blankrows:true, range:{s:{r:0,c:0}, e:{r:dec.e.r, c:dec.e.c}}});
+      const lab = (i) => rows[i] && rows[i][0] != null ? String(rows[i][0]).replace(/\s+/g,' ').trim() : '';
+      const isDashboard = rows.some((r,i) => /^(Revenue \(Total Income\)|CALCULATED METRICS)/i.test(lab(i)));
+      if (isDashboard) {
+        let hdr = -1, cols = [];
+        for (let i=0; i<Math.min(rows.length, 30); i++){
+          const mc = [];
+          (rows[i]||[]).forEach((v,c) => { if (c >= 1) { const ym = parseMonthYear(v); if (ym) mc.push({c, ym}); } });
+          if (mc.length) { hdr = i; cols = mc; break; }
+        }
+        if (hdr < 0) return;
+        let end = rows.length;
+        for (let i=hdr+1; i<rows.length; i++){
+          if ((rows[i]||[]).some((v,c) => c >= 1 && parseMonthYear(v))) { end = i; break; }
+        }
+        const find = (re) => { for (let i=hdr+1; i<end; i++) if (re.test(lab(i))) return i; return -1; };
+        const idx = {
+          rev: find(/^(Revenue\b|Total\s+(for\s+)?Income$)/i),
+          cogs: find(/^(COGS\b|Cost\s+of\s+Goods|Total\s+(for\s+)?Cost\s+of\s+Goods)/i),
+          opex: find(/^(Operating\s+Expenses|Total\s+(for\s+)?Expenses)/i),
+          int: find(/^Interest\s+Expense/i),
+          da: find(/^Depreciation/i),
+          tax: find(/^Income\s+Tax/i),
+          ni: find(/^Net\s+Income(?!\s*[—-]\s*calc)/i)
+        };
+        if (idx.rev < 0 || idx.ni < 0) return;
+        // only months that actually hold figures count (blank month columns are "no data", never $0)
+        cols = cols.filter(x => parseNumber((rows[idx.rev]||[])[x.c]) !== null || parseNumber((rows[idx.ni]||[])[x.c]) !== null);
+        if (!cols.length) return;
+        const vals = {};
+        RAW_KEYS.forEach(k => {
+          if (idx[k] < 0) { vals[k] = k === 'tax' ? null : cols.map(() => 0); return; }
+          const arr = cols.map(x => parseNumber((rows[idx[k]]||[])[x.c]));
+          vals[k] = (k === 'tax' && arr.every(v => v === null)) ? null : arr.map(v => v == null ? 0 : round2(v));
+        });
+        let title = lab(0) || sn;
+        title = title.split(/\s+[—–]\s+|\s+-\s+Profitability/i)[0].trim() || sn;
+        out.push({key: fileName + '›' + sn, fileName, sheetName: sn, name: title, months: cols.map(x => x.ym), vals});
+      } else {
+        // a monthly QuickBooks/Xero P&L export
+        try {
+          const e = parseSheet(ws, fileName);
+          if (e.ytdOnly || e.allZero) return;
+          const yms = e.months.map(parseMonthYear);
+          if (yms.some(x => !x)) return;
+          const n = e.months.length;
+          out.push({key: fileName + '›' + sn, fileName, sheetName: sn, name: e.name, months: yms, vals: {
+            rev: e.revenue.slice(0,n), cogs: e.cogs.slice(0,n), opex: e.opex.slice(0,n), int: e.interest.slice(0,n),
+            da: e.da.slice(0,n), tax: e.tax ? e.tax.slice(0,n) : null, ni: e.netIncome.slice(0,n)}});
+        } catch (err) {}
+      }
+    });
+    return out;
+  }
+
+  const NAME_STOP = new Set(['llc','pllc','inc','the','and','of','co','corp','corporation','ltd','pc','pa','company','group','profitability','accrual','basis']);
+  const nameTokens = (s) => String(s||'').toLowerCase().replace(/&/g,' and ').split(/[^a-z0-9]+/).filter(t => t && !NAME_STOP.has(t));
+  function matchScore(entityName, cand){
+    const a = nameTokens(entityName);
+    let best = 0;
+    [cand.name, cand.sheetName].forEach(nm => {
+      const b = nameTokens(nm);
+      if (!a.length || !b.length || a[0] !== b[0]) return;
+      const shared = a.filter(t => b.includes(t)).length;
+      best = Math.max(best, shared / Math.max(a.length, b.length) + 1);
+    });
+    return best;
+  }
+  function allCandidates(){ return priorFiles.flatMap(f => f.candidates); }
+  function autoMatch(e){
+    let best = null, bs = 0;
+    allCandidates().forEach(c => { const s = matchScore(e.name, c); if (s > bs) { bs = s; best = c; } });
+    return best ? best.key : 'none';
+  }
+
+  // Month layout used for the entity tab
+  function monthlyLayout(e){
+    const T = (e.targetMonths || []);
+    if (!e.ytdOnly) {
+      const yms = e.months.map(parseMonthYear);
+      const n = e.months.length;
+      const vals = {rev:e.revenue, cogs:e.cogs, opex:e.opex, int:e.interest, da:e.da, tax:e.tax, ni:e.netIncome};
+      const mv = {}; RAW_KEYS.forEach(k => mv[k] = vals[k] ? vals[k].slice(0, n) : null);
+      return {mode:'file', labels: e.months.slice(), yms, mv, derivedLast:false, status:`${n} months from the P&L file`};
+    }
+    if (!e.priorKey || e.priorKey === 'none' || T.length < 2) {
+      return {mode:'none', labels: [], yms: T, mv:null, derivedLast:false,
+        status: T.length < 2 ? 'YTD total only'
+          : (priorFiles.length ? 'YTD total only — this entity has no monthly tab in the previous workbook'
+                               : 'YTD total only — add the previous workbook (section 02) to split by month')};
+    }
+    const c = allCandidates().find(x => x.key === e.priorKey);
+    if (!c) return {mode:'none', labels:[], yms:T, mv:null, derivedLast:false, status:'YTD total only'};
+    const need = T.slice(0, T.length - 1);
+    const pos = need.map(ym => c.months.findIndex(x => ymKey(x) === ymKey(ym)));
+    if (pos.some(p => p < 0)) {
+      const have = c.months.length ? `${ymLabel(c.months[0])} – ${ymLabel(c.months[c.months.length-1])}` : 'no months';
+      return {mode:'none', labels:[], yms:T, mv:null, derivedLast:false, error:true,
+        status:`Previous data ("${c.sheetName}") has ${have}, but ${ymLabel(need[0])} – ${ymLabel(need[need.length-1])} is needed — showing YTD total only`};
+    }
+    const ytd = {rev:e.revenueTotal, cogs:e.cogsTotal, opex:e.opex[e.opex.length-1], int:e.interest[e.interest.length-1],
+      da:e.da[e.da.length-1], tax: e.tax ? e.tax[e.tax.length-1] : null, ni:e.niTotal};
+    const mv = {};
+    RAW_KEYS.forEach(k => {
+      const prev = c.vals[k] ? pos.map(p => c.vals[k][p]) : null;
+      if (k === 'tax' && prev === null && ytd.tax === null) { mv[k] = null; return; }
+      const pv = prev || need.map(() => 0);
+      const last = (ytd[k] || 0) - sum(pv);
+      mv[k] = pv.concat([last]);
+    });
+    const lastLbl = ymLabel(T[T.length-1]);
+    const warn = [];
+    if (mv.rev[mv.rev.length-1] < 0) warn.push(`${lastLbl} Revenue works out negative (${fmtMoney(mv.rev[mv.rev.length-1])}) — check that "${c.sheetName}" is the right entity.`);
+    return {mode:'prior', labels: T.map(ymLabel), yms:T, mv, derivedLast:true, source:c, warn,
+      status:`${ymLabel(T[0])} – ${ymLabel(need[need.length-1])} from "${c.sheetName}" (${c.fileName}); ${lastLbl} = YTD − earlier months (formula)`};
+  }
+
+  // ---------------- rendering ----------------
+  function linesText(lines){
+    if (!lines.length) return 'none found';
+    return lines.map(l => `${esc(l.label)} ${fmtMoney(l.values[l.values.length-1])}`).join('; ');
+  }
+
+  function renderFileList(){
+    const okHtml = entities.map(e => {
+      const label = e.status === 'stop' ? 'STOP · $0.00' : (e.status === 'check' ? 'Check' : 'Validated');
+      return `<div class="pd-fileitem">
+        <span>${esc(e.name)} <span class="mono" style="font-size:11px;">(${esc(e.fileName)})</span></span>
+        <span class="pd-right"><span class="pd-status ${e.status}">${label}</span><button class="pd-x" title="Remove file" data-remove="${e.id}">&times;</button></span>
+      </div>`;
+    }).join('');
+    const badHtml = failedFiles.map((f,i) => `<div class="pd-fileitem">
+        <span>${esc(f.fileName)}<br><span class="pd-err">Could not read: ${esc(f.error)}</span></span>
+        <span class="pd-right"><span class="pd-status stop">Error</span><button class="pd-x" title="Remove" data-remove-failed="${i}">&times;</button></span>
+      </div>`).join('');
+    fileListEl.innerHTML = okHtml + badHtml;
+    fileListEl.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const id = Number(b.dataset.remove);
+      entities = entities.filter(e => e.id !== id);
+      combinedGroups = combinedGroups.filter(g => { g.ids = g.ids.filter(x => x !== id); return g.ids.length >= 2; });
+      renderAll();
+    }));
+    fileListEl.querySelectorAll('[data-remove-failed]').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation();
+      failedFiles.splice(Number(b.dataset.removeFailed), 1);
+      renderAll();
+    }));
+  }
+
+  function renderPrior(){
+    const files = priorFiles.map((f,i) => `<div class="pd-fileitem">
+        <span>${esc(f.fileName)} <span class="mono" style="font-size:11px;">(${f.candidates.length} entity tab(s) with monthly data)</span></span>
+        <span class="pd-right"><span class="pd-status ${f.candidates.length ? 'ok' : 'stop'}">${f.candidates.length ? 'Loaded' : 'No monthly data'}</span><button class="pd-x" title="Remove" data-remove-prior="${i}">&times;</button></span>
+      </div>`).join('') + priorFailed.map(f => `<div class="pd-fileitem"><span>${esc(f.fileName)}<br><span class="pd-err">Could not read: ${esc(f.error)}</span></span><span class="pd-status stop">Error</span></div>`).join('');
+    priorListEl.innerHTML = files;
+    priorListEl.querySelectorAll('[data-remove-prior]').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation();
+      priorFiles.splice(Number(b.dataset.removePrior), 1);
+      entities.forEach(e => { if (!allCandidates().some(c => c.key === e.priorKey)) { e.priorKey = autoMatch(e); e.priorAuto = true; } });
+      renderAll();
+    }));
+
+    const ytd = entities.filter(e => e.ytdOnly);
+    if (!ytd.length || !priorFiles.length) { priorMapEl.innerHTML = ''; return; }
+    const cands = allCandidates();
+    priorMapEl.innerHTML = `<div class="pd-table-wrap"><table class="pd-table pd-map">
+      <thead><tr><th>Entity (YTD file)</th><th>Take earlier months from</th><th>Result</th></tr></thead>
+      <tbody>${ytd.map(e => {
+        const L = monthlyLayout(e);
+        return `<tr>
+          <td>${esc(e.name)}</td>
+          <td><select data-map="${e.id}">
+            <option value="none"${e.priorKey === 'none' ? ' selected' : ''}>— none (YTD total only) —</option>
+            ${cands.map(c => `<option value="${esc(c.key)}"${e.priorKey === c.key ? ' selected' : ''}>${esc(c.sheetName)} · ${esc(c.fileName)}</option>`).join('')}
+          </select></td>
+          <td class="${L.mode === 'prior' ? 'pd-ok' : (L.error ? 'pd-bad' : 'pd-blank')}">${esc(L.status)}</td>
+        </tr>`; }).join('')}</tbody></table></div>
+      <div class="pd-note">Matched automatically by entity name — change any row if needed. The latest month is never typed in: it is written as <span class="mono">= YTD − SUM(earlier months)</span>, the same way as the manual workbook.</div>`;
+    priorMapEl.querySelectorAll('[data-map]').forEach(sel => sel.addEventListener('change', () => {
+      const e = entities.find(x => x.id === Number(sel.dataset.map));
+      if (e) { e.priorKey = sel.value; e.priorAuto = false; }
+      renderAll();
+    }));
+  }
+
+  function renderCards(){
+    cardsEl.innerHTML = entities.map(e => {
+      const L = monthlyLayout(e);
+      const stamp = e.status === 'stop' ? 'STOP' : (e.status === 'check' ? 'CHECK' : 'OK');
+      const flags = [];
+      if (e.allZero) flags.push(`<span class="pd-flag warn">&#9888; Every line is $0.00 — re-export the P&amp;L. Percentages not calculated.</span>`);
+      e.warnings.forEach(w => flags.push(`<span class="pd-flag warn">&#9888; ${esc(w)}</span>`));
+      (L.warn || []).forEach(w => flags.push(`<span class="pd-flag warn">&#9888; ${esc(w)}</span>`));
+      if (!e.allZero) {
+        if (e.noCogs) flags.push(`<span class="pd-flag amber">&#9432; ${e.cogsFound ? 'COGS is $0 for the period' : 'No COGS account'} — Gross Profit = Revenue; 100% is not a meaningful gross margin.</span>`);
+        flags.push(e.qaMatch
+          ? `<span class="pd-flag ok">&#10003; QA: calculated Net Income matches reported Net Income.</span>`
+          : `<span class="pd-flag warn">&#9888; QA: calculated Net Income differs from reported by ${fmtMoney(e.qaDiff)} — investigate.</span>`);
+        e.unusual.forEach(u => flags.push(`<span class="pd-flag amber">&#9873; Review (possible one-time item): ${esc(u.label)} ${fmtMoney(u.total)}${u.pctOfRev != null ? ` (${(u.pctOfRev*100).toFixed(1)}% of revenue)` : ''}</span>`));
+      }
+      return `<div class="pd-card">
+        <div class="pd-stamp ${e.status}">${stamp}</div>
+        <div class="pd-card-name serif">${esc(e.name)}</div>
+        <div class="pd-card-sub">${e.period ? esc(e.period) + ' · ' : ''}${esc(L.status)}</div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Revenue</span><span class="pd-metric-value">${fmtMoney(e.revenueTotal)}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Gross Profit %</span><span class="pd-metric-value ${e.gpPctTotal==null?'blank':''}">${fmtPct(e.gpPctTotal) ?? '—'}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Net Income</span><span class="pd-metric-value">${fmtMoney(e.niTotal)}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Net Profit %</span><span class="pd-metric-value ${e.npPctTotal==null?'blank':''}">${fmtPct(e.npPctTotal) ?? '—'}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">EBITDA</span><span class="pd-metric-value">${fmtMoney(e.ebitdaTotal)}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">EBITDA %</span><span class="pd-metric-value ${e.ebitdaPctTotal==null?'blank':''}">${fmtPct(e.ebitdaPctTotal) ?? '—'}</span></div>
+        <div class="pd-card-detail">
+          <b>EBITDA add-backs picked up:</b><br>
+          Interest: ${linesText(e.interestLines)}<br>
+          D&amp;A: ${linesText(e.daLines)}<br>
+          Income tax: ${e.taxLines.length ? linesText(e.taxLines) : 'none in P&amp;L (left blank)'}
+          ${flags.join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderBanner(){
+    const stopped = entities.filter(e => e.allZero);
+    const checks = entities.filter(e => !e.allZero && e.status === 'check');
+    const noCogs = entities.filter(e => e.noCogs && !e.allZero);
+    const periodKey = (p) => p.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const periods = [];
+    const seenP = new Set();
+    entities.forEach(e => { if (e.period && !seenP.has(periodKey(e.period))) { seenP.add(periodKey(e.period)); periods.push(e.period); } });
+    let html = '';
+    if (failedFiles.length){
+      html += `<div class="pd-banner warn"><span>&#9888;</span><div><b>${failedFiles.length} file(s) could not be read</b> and are not included: ${failedFiles.map(f => esc(f.fileName)).join(', ')}.</div></div>`;
+    }
+    if (stopped.length){
+      html += `<div class="pd-banner warn"><span>&#9888;</span><div><b>Data validation stop.</b> ${stopped.length} of ${entities.length} entities have $0.00 across every Income and Expense line: ${stopped.map(e => esc(e.name)).join(', ')}. Percentages are intentionally left blank — re-export the P&amp;L and re-upload.</div></div>`;
+    }
+    if (checks.length){
+      html += `<div class="pd-banner warn"><span>&#9888;</span><div><b>Check needed:</b> ${checks.map(e => esc(e.name)).join(', ')} — see the red notes on the card(s) below.</div></div>`;
+    }
+    const negMonth = entities.filter(e => (monthlyLayout(e).warn || []).length);
+    if (negMonth.length){
+      html += `<div class="pd-banner warn"><span>&#9888;</span><div><b>Check the monthly split:</b> ${negMonth.map(e => esc(e.name)).join(', ')} — the latest month works out negative. Make sure the right previous-workbook tab is selected in section 02.</div></div>`;
+    }
+    if (periods.length > 1){
+      html += `<div class="pd-banner amber"><span>&#9888;</span><div><b>Different periods uploaded:</b> ${periods.map(esc).join(' / ')}. Totals and combined figures mix these periods — make sure that is intended.</div></div>`;
+    }
+    if (noCogs.length){
+      html += `<div class="pd-banner info"><span>&#9432;</span><div><b>No COGS.</b> ${noCogs.map(e => esc(e.name)).join(', ')} — Gross Profit equals Revenue for ${noCogs.length === 1 ? 'this entity' : 'these entities'}. That 100% is not a meaningful gross margin.</div></div>`;
+    }
+    bannerAreaEl.innerHTML = html;
+  }
+
+  function totalsOf(list){
+    const rev = sum(list.map(e => e.revenueTotal));
+    const gp = sum(list.map(e => e.gpTotal));
+    const ni = sum(list.map(e => e.niTotal));
+    const eb = sum(list.map(e => e.ebitdaTotal));
+    return {rev, gp, ni, eb,
+      gpPct: rev === 0 ? null : gp/rev, npPct: rev === 0 ? null : ni/rev, ebPct: rev === 0 ? null : eb/rev};
+  }
+
+  function renderSummary(){
+    const t = totalsOf(entities);
+    const rows = entities.map(e => `
+      <tr>
+        <td>${esc(e.name)}</td>
+        <td>${fmtMoney(e.revenueTotal)}</td>
+        <td>${pctCell(e.gpPctTotal)}</td>
+        <td>${fmtMoney(e.niTotal)}</td>
+        <td>${pctCell(e.npPctTotal)}</td>
+        <td>${fmtMoney(e.ebitdaTotal)}</td>
+        <td>${pctCell(e.ebitdaPctTotal)}</td>
+      </tr>`).join('');
+    summaryAreaEl.innerHTML = `
+      <div class="pd-table-wrap"><table class="pd-table">
+        <thead><tr><th>Entity</th><th>Revenue</th><th>Gross %</th><th>Net Income</th><th>Net %</th><th>EBITDA</th><th>EBITDA %</th></tr></thead>
+        <tbody>
+          ${rows}
+          <tr class="pd-total">
+            <td>Total / Consolidated</td>
+            <td>${fmtMoney(t.rev)}</td>
+            <td>${pctCell(t.gpPct)}</td>
+            <td>${fmtMoney(t.ni)}</td>
+            <td>${pctCell(t.npPct)}</td>
+            <td>${fmtMoney(t.eb)}</td>
+            <td>${pctCell(t.ebPct)}</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <div class="pd-note">Totals-row percentages are calculated from summed dollar amounts, never averaged across entities. EBITDA = Net Income + Interest + Depreciation &amp; Amortization (+ Income Tax only where a tax line exists).</div>`;
+  }
+
+  function renderCombineSelector(){
+    if (entities.length < 2){
+      combineAreaEl.innerHTML = '<div class="pd-note">Upload at least two entities to enable combined analysis.</div>';
+      combineBtn.disabled = true;
+      return;
+    }
+    combineAreaEl.innerHTML = `<div class="pd-combine-grid">
+      ${entities.map(e => `<label><input type="checkbox" class="pd-combine-check" data-id="${e.id}"><span>${esc(e.name)}</span></label>`).join('')}
+    </div>
+    <div class="pd-name-row"><label for="pd-group-name">Excel tab name (optional)</label><input type="text" id="pd-group-name" maxlength="31" placeholder="e.g. HN+BMM+Eldersburg"></div>`;
+    combineAreaEl.querySelectorAll('.pd-combine-check').forEach(cb => cb.addEventListener('change', () => {
+      combineBtn.disabled = combineAreaEl.querySelectorAll('.pd-combine-check:checked').length < 2;
+    }));
+    combineBtn.disabled = true;
+  }
+
+  function groupEntities(g){ return g.ids.map(id => entities.find(e => e.id === id)).filter(Boolean); }
+  function defaultGroupName(list, n){
+    const nm = list.map(e => (e.name.match(/[A-Za-z0-9]+/) || ['Entity'])[0]).join('+');
+    return nm.length <= 31 ? nm : `Combined ${n}`;
+  }
+
+  function renderCombinedGroups(){
+    combinedResultEl.innerHTML = combinedGroups.map((g, gi) => {
+      const list = groupEntities(g);
+      const t = totalsOf(list);
+      return `<div class="pd-card">
+        <div class="pd-stamp ok">COMBINED</div>
+        <div class="pd-card-name serif">${list.map(e => esc(e.name)).join(' + ')}</div>
+        <div class="pd-card-sub">${list.length} entities combined · Excel tab "${esc(g.name)}"</div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Revenue</span><span class="pd-metric-value">${fmtMoney(t.rev)}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Gross Profit</span><span class="pd-metric-value">${fmtMoney(t.gp)}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Gross Profit %</span><span class="pd-metric-value ${t.gpPct==null?'blank':''}">${fmtPct(t.gpPct) ?? '—'}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Net Income</span><span class="pd-metric-value">${fmtMoney(t.ni)}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">Net Profit %</span><span class="pd-metric-value ${t.npPct==null?'blank':''}">${fmtPct(t.npPct) ?? '—'}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">EBITDA</span><span class="pd-metric-value">${fmtMoney(t.eb)}</span></div>
+        <div class="pd-metric-row"><span class="pd-metric-label">EBITDA %</span><span class="pd-metric-value ${t.ebPct==null?'blank':''}">${fmtPct(t.ebPct) ?? '—'}</span></div>
+        <div class="pd-actions" style="margin-top:12px;"><button class="pd-btn pd-btn-ghost pd-btn-small" data-remove-group="${gi}">Remove group</button></div>
+      </div>`;
+    }).join('');
+    combinedResultEl.querySelectorAll('[data-remove-group]').forEach(b => b.addEventListener('click', () => {
+      combinedGroups.splice(Number(b.dataset.removeGroup), 1);
+      renderCombinedGroups();
+    }));
+  }
+
+  combineBtn.addEventListener('click', () => {
+    const ids = Array.from(combineAreaEl.querySelectorAll('.pd-combine-check:checked')).map(x => Number(x.dataset.id));
+    if (ids.length < 2) return;
+    const key = ids.slice().sort((a,b)=>a-b).join(',');
+    if (!combinedGroups.some(g => g.ids.slice().sort((a,b)=>a-b).join(',') === key)) {
+      const typed = (document.getElementById('pd-group-name') || {}).value || '';
+      const list = ids.map(id => entities.find(e => e.id === id)).filter(Boolean);
+      combinedGroups.push({ids, name: typed.trim() || defaultGroupName(list, combinedGroups.length + 1)});
+    }
+    combineAreaEl.querySelectorAll('.pd-combine-check').forEach(cb => cb.checked = false);
+    const nm = document.getElementById('pd-group-name'); if (nm) nm.value = '';
+    combineBtn.disabled = true;
+    renderCombinedGroups();
+  });
+
+  function renderAll(){
+    renderFileList();
+    renderPrior();
+    if (!entities.length){
+      resultsEl.style.display = 'none';
+      emptyEl.style.display = 'block';
+      if (failedFiles.length) progressEl.textContent = 'No valid P&L files were parsed. See the errors above.';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    resultsEl.style.display = 'block';
+    renderCards();
+    renderBanner();
+    renderSummary();
+    renderCombineSelector();
+    renderCombinedGroups();
+  }
+
+  async function handleFiles(fileArr){
+    if (!fileArr.length) return;
+    progressEl.textContent = `Parsing ${fileArr.length} file(s)...`;
+    let ok = 0;
+    for (const f of fileArr){
+      try {
+        const e = await parseWorkbook(f);
+        deriveMetrics(e);
+        const old = entities.find(x => x.fileName === f.name);
+        if (old) {
+          e.id = old.id;
+          if (!old.priorAuto) { e.priorKey = old.priorKey; e.priorAuto = false; }
+          entities[entities.indexOf(old)] = e;
+        } else entities.push(e);
+        if (e.priorKey === undefined || e.priorAuto !== false) { e.priorKey = autoMatch(e); e.priorAuto = true; }
+        failedFiles = failedFiles.filter(x => x.fileName !== f.name);
+        ok++;
+      } catch (err) {
+        console.error('Failed to parse', f.name, err);
+        failedFiles = failedFiles.filter(x => x.fileName !== f.name);
+        failedFiles.push({fileName: f.name, error: err && err.message ? err.message : String(err)});
+      }
+    }
+    progressEl.textContent = `${ok} of ${fileArr.length} file(s) parsed · ${entities.length} entit${entities.length === 1 ? 'y' : 'ies'} loaded.`;
+    renderAll();
+  }
+
+  async function handlePriorFiles(fileArr){
+    if (!fileArr.length) return;
+    for (const f of fileArr){
+      try {
+        const buf = await readFileAsArrayBuffer(f);
+        const wb = XLSX.read(new Uint8Array(buf), {type:'array', cellDates:true, cellFormula:true, sheetStubs:true});
+        const candidates = extractPriorCandidates(wb, f.name);
+        priorFiles = priorFiles.filter(x => x.fileName !== f.name);
+        priorFailed = priorFailed.filter(x => x.fileName !== f.name);
+        priorFiles.push({fileName: f.name, candidates});
+      } catch (err) {
+        console.error('Failed to read previous workbook', f.name, err);
+        priorFailed = priorFailed.filter(x => x.fileName !== f.name);
+        priorFailed.push({fileName: f.name, error: err && err.message ? err.message : String(err)});
+      }
+    }
+    entities.forEach(e => { if (e.priorAuto !== false) { e.priorKey = autoMatch(e); e.priorAuto = true; } });
+    renderAll();
+  }
+
+  function wireDrop(zone, input, handler){
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('pd-drag'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('pd-drag'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('pd-drag');
+      handler(Array.from(e.dataTransfer.files).filter(f => /\.xlsx?$/i.test(f.name)));
+    });
+    input.addEventListener('change', async (e) => { await handler(Array.from(e.target.files)); input.value = ''; });
+  }
+  wireDrop(dropZone, fileInput, handleFiles);
+  wireDrop(priorDrop, priorInput, handlePriorFiles);
+
+  resetBtn.addEventListener('click', () => {
+    genStatusEl.style.display = 'none';
+    entities = []; failedFiles = []; combinedGroups = []; priorFiles = []; priorFailed = [];
+    fileInput.value = ''; priorInput.value = '';
+    fileListEl.innerHTML = ''; priorListEl.innerHTML = ''; priorMapEl.innerHTML = '';
+    progressEl.textContent = '';
+    combineAreaEl.innerHTML = '';
+    combinedResultEl.innerHTML = '';
+    combineBtn.disabled = true;
+    resultsEl.style.display = 'none';
+    emptyEl.style.display = 'block';
+  });
+
+  // ---------------- Excel generation (ExcelJS: formulas + cached results + colour formatting) ----------------
+  const MONEY_FMT = '$#,##0;[Red]($#,##0);"-"';
+  const PCT_FMT = '0.0%;[Red](0.0%);"-"';
+  const C = {
+    ink: 'FF1C2430', teal: 'FF0F6E5C', tealLight: 'FFE4EFEC', white: 'FFFFFFFF', grey: 'FF595959',
+    band: 'FFF7F7F7', totalCol: 'FFEDEDED', pctRow: 'FFFFF2CC', input: 'FF0000FF', derived: 'FFDDEBF7',
+    line: 'FFD9D9D9', okFill: 'FFC6EFCE', okFont: 'FF006100', badFill: 'FFFFC7CE', badFont: 'FF9C0006',
+    amberFill: 'FFFFF4E5', amberFont: 'FF8A5A00', totalRow: 'FFD9EAD3', section: 'FF2F4F4F'
+  };
+  const fill = (argb) => ({type:'pattern', pattern:'solid', fgColor:{argb}});
+  const thin = {style:'thin', color:{argb: C.line}};
+  const BOX = {top:thin, left:thin, bottom:thin, right:thin};
+
+  function colLetter(n){ let s = ''; while (n > 0){ const m = (n-1) % 26; s = String.fromCharCode(65+m) + s; n = Math.floor((n-1)/26); } return s; }
+  function qs(name){ return "'" + name.replace(/'/g, "''") + "'"; }
+
+  function makeSheetNames(list, reserved){
+    const used = new Set(reserved.map(s => s.toLowerCase()));
+    const out = {};
+    list.forEach(e => {
+      let base = e.name.replace(/[\[\]:*?\/\\]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^'+|'+$/g, '').trim();
+      if (!base || base.toLowerCase() === 'history') base = 'Entity';
+      base = base.slice(0, 31).trim();
+      let nm = base, k = 2;
+      while (used.has(nm.toLowerCase())) { const suf = ` (${k++})`; nm = base.slice(0, 31 - suf.length).trim() + suf; }
+      used.add(nm.toLowerCase());
+      out[e.id] = nm;
+    });
+    return out;
+  }
+  function cleanTabName(nm, used){
+    let base = String(nm || '').replace(/[\[\]:*?\/\\]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^'+|'+$/g, '').trim().slice(0, 31).trim() || 'Combined';
+    let out = base, k = 2;
+    while (used.has(out.toLowerCase())) { const suf = ` (${k++})`; out = base.slice(0, 31 - suf.length).trim() + suf; }
+    used.add(out.toLowerCase());
+    return out;
+  }
+
+  // value/formula writers — every formula also stores its calculated result
+  function setV(ws, addr, v, fmt){ const c = ws.getCell(addr); c.value = v; if (fmt) c.numFmt = fmt; return c; }
+  function setF(ws, addr, f, result, fmt){
+    const c = ws.getCell(addr);
+    c.value = {formula: f, result: (result === null || result === undefined) ? '' : result};
+    if (fmt) c.numFmt = fmt;
+    return c;
+  }
+  function style(c, o){
+    if (o.bold || o.color || o.italic || o.size) {
+      const f = {name:'Calibri', size: o.size || 10, bold: !!o.bold, italic: !!o.italic};
+      if (o.color) f.color = {argb: o.color};
+      c.font = f;
+    }
+    if (o.fill) c.fill = fill(o.fill);
+    if (o.border) c.border = BOX;
+    if (o.align) c.alignment = Object.assign({}, c.alignment || {}, o.align);
+    return c;
+  }
+  function baseFont(ws){ ws.eachRow({includeEmpty:false}, row => row.eachCell({includeEmpty:false}, c => { if (!c.font || !c.font.name) c.font = Object.assign({name:'Calibri', size:10}, c.font || {}); })); }
+
+  function buildEntitySheet(wb, e, tabName, globalLabels){
+    const ws = wb.addWorksheet(tabName, {views:[{state:'frozen', xSplit:1, ySplit:3}], properties:{defaultRowHeight:16}});
+    ws.pageSetup = {orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
+    let L = monthlyLayout(e);
+    // Keep the same month columns on every tab: entities without a monthly split show blank months + the YTD total
+    let labels = L.labels;
+    if (L.mode === 'none' && globalLabels.length && e.targetMonths && e.targetMonths.map(ymLabel).join('|') === globalLabels.join('|')) labels = globalLabels.slice();
+    const nM = labels.length;
+    const cols = labels.concat(['Total']);
+    const nC = cols.length;
+    const TC = colLetter(1 + nC);
+    const colOf = (i) => colLetter(2 + i);
+    const lastColIdx = 1 + nC;
+    const hasMonthVals = L.mode === 'file' || L.mode === 'prior';
+
+    // widths
+    ws.getColumn(1).width = 46;
+    for (let i=0; i<nC; i++) ws.getColumn(2+i).width = 14.5;
+
+    // Title rows
+    const t1 = setV(ws, 'A1', `${e.name} — Profitability (Accrual Basis)${e.period ? ' — ' + e.period : ''}`);
+    style(t1, {bold:true, size:14, color:C.ink});
+    ws.getRow(1).height = 22;
+    let info = `Source: ${e.fileName}`;
+    if (L.mode === 'prior') info += ` · ${L.status}`;
+    else if (L.mode === 'file') info += ' · Monthly P&L export';
+    else info += ` · ${L.status}`;
+    style(setV(ws, 'A2', info), {italic:true, color:C.grey, size:9});
+
+    // Header row 3
+    const hdr = (r, firstLabel) => {
+      style(setV(ws, 'A' + r, firstLabel), {bold:true, color:C.white, fill:C.teal, border:true});
+      cols.forEach((c,i) => style(setV(ws, colOf(i) + r, c), {bold:true, color:C.white, fill:C.teal, border:true, align:{horizontal:'center'}}));
+      ws.getRow(r).height = 18;
+    };
+    hdr(3, 'Line Item');
+
+    const R = {rev:4, cogs:5, opex:6, int:7, da:8, tax:9, ni:10};
+    const labelsRaw = {
+      rev: 'Revenue (Total Income)',
+      cogs: 'COGS (Total Cost of Goods Sold)' + (e.cogsFound ? (e.noCogs ? ' — $0 FOR PERIOD' : '') : ' — NO COGS ACCOUNT'),
+      opex: 'Operating Expenses (Total Expenses)',
+      int: 'Interest Expense',
+      da: 'Depreciation & Amortization',
+      tax: 'Income Tax Expense (blank if none)',
+      ni: 'Net Income (as reported)'
+    };
+    const ytdOf = {rev:e.revenueTotal, cogs:e.cogsTotal, opex:e.opex[e.opex.length-1], int:e.interest[e.interest.length-1],
+      da:e.da[e.da.length-1], tax: e.tax ? e.tax[e.tax.length-1] : null, ni:e.niTotal};
+    const rawCol = {};   // key -> array of per-column numeric values (null = blank) incl. total
+    RAW_KEYS.forEach(k => {
+      const r = R[k];
+      style(setV(ws, 'A' + r, labelsRaw[k]), {border:true});
+      const vals = [];
+      if (hasMonthVals) {
+        const mv = L.mv[k];
+        for (let i=0; i<nM; i++){
+          const addr = colOf(i) + r;
+          if (mv === null) { style(ws.getCell(addr), {border:true}); vals.push(null); continue; }
+          if (L.derivedLast && i === nM - 1) {
+            const prevRange = nM > 1 ? `SUM(${colOf(0)}${r}:${colOf(nM-2)}${r})` : '0';
+            const y = ytdOf[k] == null ? 0 : ytdOf[k];
+            style(setF(ws, addr, `${y}-${prevRange}`, mv[i], MONEY_FMT), {border:true, fill:C.derived});
+          } else {
+            style(setV(ws, addr, mv[i], MONEY_FMT), {border:true, color:C.input});
+          }
+          vals.push(mv[i]);
+        }
+        const tv = mv === null ? null : sum(mv);
+        if (mv === null) style(ws.getCell(TC + r), {border:true, fill:C.totalCol});
+        else style(setF(ws, TC + r, `SUM(${colOf(0)}${r}:${colOf(nM-1)}${r})`, tv, MONEY_FMT), {bold:true, border:true, fill:C.totalCol});
+        vals.push(tv);
+      } else {
+        for (let i=0; i<nM; i++){ style(ws.getCell(colOf(i) + r), {border:true}); vals.push(null); }
+        const y = ytdOf[k];
+        if (y === null) style(ws.getCell(TC + r), {border:true, fill:C.totalCol});
+        else style(setV(ws, TC + r, y, MONEY_FMT), {bold:true, border:true, fill:C.totalCol, color:C.input});
+        vals.push(y);
+      }
+      rawCol[k] = vals;
+    });
+
+    // Calculated metrics (row 13 header, rows 14-20) — same positions as the manual workbook
+    hdr(13, 'CALCULATED METRICS');
+    const M = {rev:14, gp:15, gpPct:16, ni:17, npPct:18, ebitda:19, ebitdaPct:20};
+    const mLabels = {rev:'Revenue', gp:'Gross Profit', gpPct:'Gross Profit %', ni:'Net Income', npPct:'Net Profit %', ebitda:'EBITDA', ebitdaPct:'EBITDA %'};
+    Object.keys(M).forEach(k => {
+      const isPct = /Pct$/.test(k);
+      style(setV(ws, 'A' + M[k], mLabels[k]), {bold: k === 'ebitda' || k === 'ni', border:true, fill: isPct ? C.pctRow : undefined});
+    });
+    for (let i=0; i<nC; i++){
+      const c = colOf(i);
+      const isTotal = i === nC - 1;
+      const cf = isTotal ? C.totalCol : undefined;
+      if (!isTotal && !hasMonthVals) {
+        Object.keys(M).forEach(k => style(ws.getCell(c + M[k]), {border:true, fill: /Pct$/.test(k) ? C.pctRow : undefined}));
+        continue;
+      }
+      const rv = rawCol.rev[i] || 0, cg = rawCol.cogs[i] || 0, ni = rawCol.ni[i] || 0;
+      const it = rawCol.int[i] || 0, da = rawCol.da[i] || 0, tx = rawCol.tax[i] == null ? 0 : rawCol.tax[i];
+      const gp = rv - cg, eb = ni + it + da + tx;
+      const pct = (x) => rv === 0 ? '' : x / rv;
+      style(setF(ws, c + M.rev, `${c}${R.rev}`, rv, MONEY_FMT), {border:true, fill:cf, bold:isTotal});
+      style(setF(ws, c + M.gp, `${c}${R.rev}-${c}${R.cogs}`, gp, MONEY_FMT), {border:true, fill:cf, bold:isTotal});
+      style(setF(ws, c + M.gpPct, `IF(${c}${M.rev}=0,"",${c}${M.gp}/${c}${M.rev})`, pct(gp), PCT_FMT), {border:true, fill:C.pctRow, bold:isTotal});
+      style(setF(ws, c + M.ni, `${c}${R.ni}`, ni, MONEY_FMT), {border:true, fill:cf, bold:true});
+      style(setF(ws, c + M.npPct, `IF(${c}${M.rev}=0,"",${c}${M.ni}/${c}${M.rev})`, pct(ni), PCT_FMT), {border:true, fill:C.pctRow, bold:isTotal});
+      style(setF(ws, c + M.ebitda, `${c}${M.ni}+${c}${R.int}+${c}${R.da}+IF(${c}${R.tax}="",0,${c}${R.tax})`, eb, MONEY_FMT), {border:true, fill:cf, bold:true});
+      style(setF(ws, c + M.ebitdaPct, `IF(${c}${M.rev}=0,"",${c}${M.ebitda}/${c}${M.rev})`, pct(eb), PCT_FMT), {border:true, fill:C.pctRow, bold:isTotal});
+    }
+
+    // Checks (Total column)
+    const secRow = (r, text) => { ws.mergeCells(r, 1, r, lastColIdx); style(setV(ws, 'A' + r, text), {bold:true, color:C.white, fill:C.section}); };
+    secRow(22, 'CHECKS');
+    const nOther = e.netOther[e.netOther.length-1];
+    style(setV(ws, 'A23', 'Net Other Income / (Expense) — YTD per P&L'), {border:true});
+    style(setV(ws, TC + '23', nOther, MONEY_FMT), {border:true, color:C.input, fill:C.totalCol});
+    style(setV(ws, 'A24', 'Net Income — calculated (Revenue − COGS − Expenses + Net Other)'), {border:true});
+    const calcNI = rawCol.rev[nC-1] - rawCol.cogs[nC-1] - rawCol.opex[nC-1] + nOther;
+    style(setF(ws, TC + '24', `${TC}${R.rev}-${TC}${R.cogs}-${TC}${R.opex}+${TC}23`, calcNI, MONEY_FMT), {border:true, fill:C.totalCol});
+    const qaOk = Math.round(rawCol.ni[nC-1] - calcNI) === 0;
+    style(setV(ws, 'A25', 'QA — Reported vs. Calculated Net Income'), {border:true});
+    style(setF(ws, TC + '25', `IF(ROUND(${TC}${R.ni}-${TC}24,0)=0,"MATCH","MISMATCH")`, qaOk ? 'MATCH' : 'MISMATCH'),
+      {bold:true, border:true, fill: qaOk ? C.okFill : C.badFill, color: qaOk ? C.okFont : C.badFont, align:{horizontal:'center'}});
+    style(setV(ws, 'A26', 'COGS Account Check'), {border:true});
+    if (lastColIdx > 2) ws.mergeCells(26, 2, 26, lastColIdx);
+    const cogsTxt = e.cogsTotal === 0 ? 'No COGS — Gross Profit = Revenue; not a meaningful margin' : 'COGS account present';
+    style(setF(ws, 'B26', `IF(${TC}${R.cogs}=0,"No COGS — Gross Profit = Revenue; not a meaningful margin","COGS account present")`, cogsTxt),
+      {border:true, fill: e.cogsTotal === 0 ? C.amberFill : C.okFill, color: e.cogsTotal === 0 ? C.amberFont : C.okFont});
+    style(setV(ws, 'A27', 'Zero-Revenue Check'), {border:true});
+    if (lastColIdx > 2) ws.mergeCells(27, 2, 27, lastColIdx);
+    const zTxt = e.revenueTotal === 0 ? 'STOP — Revenue is $0.00. Percentages suppressed.' : 'Revenue present';
+    style(setF(ws, 'B27', `IF(${TC}${R.rev}=0,"STOP — Revenue is $0.00. Percentages suppressed.","Revenue present")`, zTxt),
+      {border:true, fill: e.revenueTotal === 0 ? C.badFill : C.okFill, color: e.revenueTotal === 0 ? C.badFont : C.okFont});
+
+    // Notes
+    let r = 29;
+    secRow(r, 'NOTES'); r++;
+    const notes = [];   // [text, kind]
+    if (e.allZero) notes.push(['STOP — every line item in this P&L is $0.00 for the period. Percentages are not calculated on empty data.', 'bad']);
+    e.warnings.forEach(w => notes.push(['CHECK — ' + w, 'bad']));
+    (L.warn || []).forEach(w => notes.push(['CHECK — ' + w, 'bad']));
+    if (L.mode === 'prior') notes.push([`Monthly split: ${L.status}. The latest month absorbs any adjustments booked to earlier months.`, 'info']);
+    if (L.mode === 'none' && e.ytdOnly) notes.push([`Only a YTD P&L was provided — month columns are left blank (not estimated). ${L.error ? L.status : ''}`.trim(), L.error ? 'bad' : 'info']);
+    if (!e.allZero) {
+      if (!e.cogsFound) notes.push(['No COGS account exists in this entity\'s chart of accounts — Gross Profit = Revenue (100%); not a meaningful gross margin.', 'amber']);
+      else if (e.noCogs) notes.push(['COGS account exists but is $0 for the period — Gross Profit = Revenue (100%); not a meaningful gross margin.', 'amber']);
+      const lt = (lines) => lines.length ? lines.map(l => `${l.label} (${fmtMoney(l.values[l.values.length-1])})`).join('; ') : 'none';
+      notes.push([`EBITDA add-backs taken from the P&L — Interest: ${lt(e.interestLines)} · D&A: ${lt(e.daLines)} · Income tax: ${e.taxLines.length ? lt(e.taxLines) : 'no tax line in P&L (left blank)'}.`, 'info']);
+      e.unusual.forEach(u => notes.push([`Review — possible one-time/unusual item that distorts ratios: ${u.label} ${fmtMoney(u.total)}${u.pctOfRev != null ? ` (${(u.pctOfRev*100).toFixed(1)}% of revenue)` : ''}.`, 'amber']));
+      if (!e.qaMatch) notes.push([`QA — calculated Net Income differs from the reported Net Income by ${fmtMoney(e.qaDiff)}. Investigate before relying on the ratios.`, 'bad']);
+    }
+    notes.push(['Colour key: blue numbers = typed-in source figures · light-blue cells = latest month formula (YTD − earlier months) · black = formulas · yellow rows = percentages · red = negative.', 'key']);
+    notes.forEach(([text, kind]) => {
+      ws.mergeCells(r, 1, r, Math.max(lastColIdx, 6));
+      const c = setV(ws, 'A' + r, text);
+      const f = kind === 'bad' ? [C.badFill, C.badFont] : kind === 'amber' ? [C.amberFill, C.amberFont] : kind === 'key' ? [null, C.grey] : [C.tealLight, C.ink];
+      style(c, {fill: f[0] || undefined, color: f[1], italic: kind === 'key', size: kind === 'key' ? 9 : 10, align:{wrapText:true, vertical:'top'}});
+      ws.getRow(r).height = Math.max(16, Math.ceil(text.length / Math.max(60, 12 * (lastColIdx + 2))) * 14);
+      r++;
+    });
+    baseFont(ws);
+    return {TC, M, colOf, nC};
+  }
+
+  async function generateWorkbook(){
+    if (!entities.length) return;
+    const showStatus = (cls, html) => { genStatusEl.className = 'pd-gen-status ' + cls; genStatusEl.innerHTML = html; genStatusEl.style.display = 'block'; };
+    if (typeof ExcelJS === 'undefined') {
+      showStatus('err', '<b>The Excel library could not be loaded.</b> This page needs internet access to cdnjs.cloudflare.com (or cdn.jsdelivr.net). Check the connection / VPN, then reload the page and upload the files again.');
+      return;
+    }
+    genBtn.disabled = true;
+    const oldTxt = genBtn.textContent; genBtn.textContent = 'Building workbook…';
+    showStatus('busy', 'Building workbook…');
+    const groupErrors = [];
+    try {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Profitability Dashboard Builder';
+      wb.calcProperties = {fullCalcOnLoad: true};
+      const used = new Set(['consolidated analysis']);
+      const groups = combinedGroups.map(g => ({g, list: groupEntities(g)})).filter(x => x.list.length >= 2);
+      const groupTabs = groups.map(x => cleanTabName(x.g.name, used));
+      const sheetNames = makeSheetNames(entities, Array.from(used));
+      const pk = (x) => x.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const uniq = (arr) => arr.filter(Boolean).filter((x, i, a) => a.findIndex(y => pk(y) === pk(x)) === i);
+      const periodText = uniq(entities.map(e => e.period)).join(' / ');
+
+      // most common month set among entities that have a monthly split
+      const counts = {};
+      entities.forEach(e => { const L = monthlyLayout(e); if (L.mode !== 'none') { const k = L.labels.join('|'); counts[k] = (counts[k] || 0) + 1; } });
+      const bestKey = Object.keys(counts).sort((a,b) => counts[b] - counts[a])[0];
+      const globalLabels = bestKey ? bestKey.split('|') : [];
+
+      // sheets are created in display order: Consolidated Analysis, combined tabs, entity tabs
+      const sw = wb.addWorksheet('Consolidated Analysis', {views:[{state:'frozen', ySplit:3}], properties:{tabColor:{argb:C.teal}}});
+      const gws = groupTabs.map(nm => wb.addWorksheet(nm, {properties:{tabColor:{argb:'FFB8862E'}}}));
+      const info = {};
+      entities.forEach(e => { info[e.id] = buildEntitySheet(wb, e, sheetNames[e.id], globalLabels); info[e.id].name = sheetNames[e.id]; });
+      const ref = (e, row) => `${qs(info[e.id].name)}!${info[e.id].TC}${row}`;
+
+      // ---- Consolidated Analysis (per-entity totals + TOTAL row) ----
+      sw.pageSetup = {orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
+      [44,17,11,17,11,17,11,40].forEach((w,i) => sw.getColumn(i+1).width = w);
+      style(setV(sw, 'A1', 'Profitability Summary — Total by Entity'), {bold:true, size:14, color:C.ink});
+      sw.getRow(1).height = 22;
+      style(setV(sw, 'A2', `Period: ${periodText || 'as per source files'} (YTD, Accrual Basis)`), {italic:true, color:C.grey});
+      ['Entity','Revenue','Gross %','Net Income','Net %','EBITDA','EBITDA %','Flags'].forEach((h,i) =>
+        style(setV(sw, colLetter(1+i) + '3', h), {bold:true, color:C.white, fill:C.teal, border:true, align:{horizontal: i === 0 || i === 7 ? 'left' : 'center'}}));
+      sw.getRow(3).height = 18;
+      let r = 4;
+      const first = r;
+      entities.forEach((e, idx) => {
+        const M = info[e.id].M;
+        const band = idx % 2 ? C.band : undefined;
+        style(setV(sw, 'A' + r, e.name), {border:true, fill:band});
+        style(setF(sw, 'B' + r, ref(e, M.rev), e.revenueTotal, MONEY_FMT), {border:true, fill:band});
+        style(setF(sw, 'C' + r, ref(e, M.gpPct), e.gpPctTotal, PCT_FMT), {border:true, fill:band});
+        style(setF(sw, 'D' + r, ref(e, M.ni), e.niTotal, MONEY_FMT), {border:true, fill:band});
+        style(setF(sw, 'E' + r, ref(e, M.npPct), e.npPctTotal, PCT_FMT), {border:true, fill:band});
+        style(setF(sw, 'F' + r, ref(e, M.ebitda), e.ebitdaTotal, MONEY_FMT), {border:true, fill:band});
+        style(setF(sw, 'G' + r, ref(e, M.ebitdaPct), e.ebitdaPctTotal, PCT_FMT), {border:true, fill:band});
+        const fl = [];
+        if (e.allZero) fl.push('STOP — $0.00 data');
+        if (e.noCogs && !e.allZero) fl.push('No COGS (GP = Revenue)');
+        if (!e.qaMatch) fl.push('QA mismatch');
+        if (e.warnings.length) fl.push('Check notes');
+        if (e.unusual.length) fl.push('One-time items — see notes');
+        const bad = e.allZero || !e.qaMatch || e.warnings.length;
+        style(setV(sw, 'H' + r, fl.join('; ')), {border:true, fill:band, color: bad ? C.badFont : C.amberFont, size:9});
+        r++;
+      });
+      const last = r - 1;
+      const t = totalsOf(entities);
+      const totStyle = {bold:true, border:true, fill:C.totalRow};
+      style(setV(sw, 'A' + r, 'TOTAL / CONSOLIDATED'), totStyle);
+      style(setF(sw, 'B' + r, `SUM(B${first}:B${last})`, t.rev, MONEY_FMT), totStyle);
+      style(setF(sw, 'C' + r, `IF(B${r}=0,"",(${entities.map(e => ref(e, info[e.id].M.gp)).join('+')})/B${r})`, t.gpPct, PCT_FMT), totStyle);
+      style(setF(sw, 'D' + r, `SUM(D${first}:D${last})`, t.ni, MONEY_FMT), totStyle);
+      style(setF(sw, 'E' + r, `IF(B${r}=0,"",D${r}/B${r})`, t.npPct, PCT_FMT), totStyle);
+      style(setF(sw, 'F' + r, `SUM(F${first}:F${last})`, t.eb, MONEY_FMT), totStyle);
+      style(setF(sw, 'G' + r, `IF(B${r}=0,"",F${r}/B${r})`, t.ebPct, PCT_FMT), totStyle);
+      style(sw.getCell('H' + r), totStyle);
+      ['A','B','C','D','E','F','G','H'].forEach(col => sw.getCell(col + r).border = Object.assign({}, BOX, {top:{style:'medium', color:{argb:C.ink}}}));
+      r += 2;
+      sw.mergeCells(r, 1, r, 8);
+      style(setV(sw, 'A' + r, 'Note: % in the total row are recalculated from summed dollar amounts, never averaged, per SOP. EBITDA = Net Income + Interest + D&A (+ Income Tax only where a tax line exists).'),
+        {italic:true, color:C.grey, size:9, align:{wrapText:true}});
+      sw.getRow(r).height = 26;
+      baseFont(sw);
+
+      // ---- Combined groups (her layout: A1, A2 period, A3 entities, A5–A11 metrics) ----
+      groups.forEach((x, gi) => { try {
+        const gw = gws[gi]; const list = x.list; const gt = totalsOf(list);
+        gw.pageSetup = {orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
+        gw.getColumn(1).width = 24; gw.getColumn(2).width = 22; gw.getColumn(3).width = 60;
+        style(setV(gw, 'A1', 'Combined Entity Analysis'), {bold:true, size:14, color:C.ink});
+        gw.getRow(1).height = 22;
+        style(setV(gw, 'A2', `Period: ${uniq(list.map(e => e.period)).join(' / ') || 'as per source files'}`), {italic:true, color:C.grey});
+        style(setV(gw, 'A3', 'Entities'), {bold:true, color:C.white, fill:C.teal, border:true});
+        gw.mergeCells('B3:C3');
+        style(setV(gw, 'B3', list.map(e => e.name).join(' + ')), {bold:true, border:true, fill:C.tealLight, align:{wrapText:true, vertical:'middle'}});
+        gw.getRow(3).height = Math.max(18, Math.ceil(list.map(e => e.name).join(' + ').length / 70) * 15);
+        style(setV(gw, 'A4', 'Metric'), {bold:true, color:C.white, fill:C.teal, border:true});
+        style(setV(gw, 'B4', 'Combined'), {bold:true, color:C.white, fill:C.teal, border:true, align:{horizontal:'center'}});
+        const sumRef = (k) => list.map(e => ref(e, info[e.id].M[k])).join('+');
+        const rowsG = [
+          [5, 'Revenue', sumRef('rev'), gt.rev, MONEY_FMT, false],
+          [6, 'Gross Profit', sumRef('gp'), gt.gp, MONEY_FMT, false],
+          [7, 'Gross Profit %', 'IF(B5=0,"",B6/B5)', gt.gpPct, PCT_FMT, true],
+          [8, 'Net Income', sumRef('ni'), gt.ni, MONEY_FMT, false],
+          [9, 'Net Profit %', 'IF(B5=0,"",B8/B5)', gt.npPct, PCT_FMT, true],
+          [10, 'EBITDA', sumRef('ebitda'), gt.eb, MONEY_FMT, false],
+          [11, 'EBITDA %', 'IF(B5=0,"",B10/B5)', gt.ebPct, PCT_FMT, true]
+        ];
+        rowsG.forEach(([rr, lab, f, v, fmt, isPct]) => {
+          style(setV(gw, 'A' + rr, lab), {border:true, bold: lab === 'EBITDA' || lab === 'Net Income', fill: isPct ? C.pctRow : undefined});
+          style(setF(gw, 'B' + rr, f, v, fmt), {border:true, bold: lab === 'EBITDA' || lab === 'Net Income', fill: isPct ? C.pctRow : undefined});
+        });
+        style(setV(gw, 'A13', 'Method'), {bold:true, align:{vertical:'top'}});
+        gw.mergeCells('B13:C13');
+        style(setV(gw, 'B13', 'Sum entity dollar amounts first; calculate combined percentages from combined Revenue. Individual percentages are never averaged.'),
+          {italic:true, color:C.grey, size:9, align:{wrapText:true, vertical:'top'}});
+        gw.getRow(13).height = 26;
+        baseFont(gw);
+      } catch (ge) {
+        console.error('Combined tab failed', ge);
+        groupErrors.push(`"${groupTabs[gi]}": ${ge && ge.message ? ge.message : ge}`);
+        try { wb.removeWorksheet(gws[gi].id); } catch (re) {}
+      } });
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const fname = 'Profitability_Dashboard.xlsx';
+      if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+        window.navigator.msSaveOrOpenBlob(blob, fname);
+      } else {
+        if (lastDownloadUrl) { try { URL.revokeObjectURL(lastDownloadUrl); } catch (e) {} }
+        lastDownloadUrl = URL.createObjectURL(blob);      // kept alive until the next build
+        const a = document.createElement('a');
+        a.href = lastDownloadUrl; a.download = fname; a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      const tabCount = wb.worksheets.length;
+      showStatus(groupErrors.length ? 'err' : 'ok',
+        `<b>Workbook ready</b> — ${tabCount} tabs (Consolidated Analysis, ${groups.length - groupErrors.length} combined, ${entities.length} entity). ` +
+        `If the download did not start automatically, click the button below.<br>` +
+        (lastDownloadUrl ? `<a class="pd-save-link" id="pd-save-link" href="${lastDownloadUrl}" download="${fname}">Save ${fname}</a>` : '') +
+        (groupErrors.length ? `<br><b>Could not build these combined tab(s):</b> ${groupErrors.map(esc).join('; ')} — please send a screenshot of this message.` : ''));
+    } catch (err) {
+      console.error(err);
+      showStatus('err', `<b>Could not generate the workbook.</b> Error: ${esc(err && err.message ? err.message : String(err))}<br>Please send a screenshot of this message.`);
+    } finally {
+      genBtn.disabled = false; genBtn.textContent = oldTxt;
+    }
+  }
+
+  genBtn.addEventListener('click', generateWorkbook);
+
+  // exposed for automated testing only
+  window.__pd = { get entities(){ return entities; }, get groups(){ return combinedGroups; }, layout: (e) => monthlyLayout(e) };
+})();
+</script>
+</body>
+</html>
